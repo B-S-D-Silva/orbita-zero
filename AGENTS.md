@@ -11,6 +11,9 @@ HTML, CSS e JavaScript puros; index.html na raiz. Sem servidor, compilação, fo
 - tests/game.test.js: verificações das regras da simulação.
 
 ## Regras
+Identidade arcade: sprites de pixels originais, placar grande, quiz visualmente destacado, alternativas A–D e modo Só Quiz com 16 perguntas sem combate. Referências visuais pesquisadas estão documentadas no README; não copiar recursos protegidos dos jogos de referência.
+Dash substitui a antiga propulsão: duas cargas, recarga sequencial de 4 segundos, direção fixa durante cada avanço, duração de 0,18 segundo e proteção de 0,3 segundo. Mostrar cargas e recarga na interface. Controles funcionam por teclado e toque.
+Três acertos seguidos liberam 8 segundos de OVERDRIVE (disparo duas vezes mais rápido). Erros zeram a sequência sem retirar pontos. Combos de combate multiplicam apenas pontos de inimigos até ×4; expiram em 3 segundos sem eliminação ou ao sofrer dano. Preservar os testes dessas regras.
 Antes de cada setor, apresentar perguntas de arquitetura de computadores: três nos setores 1–4 e quatro no setor 5, totalizando os 16 temas da atividade. A simulação fica suspensa durante as perguntas. Exigir uma resposta antes de avançar, mostrar a alternativa correta e uma explicação. Cada acerto concede uma única recompensa de +100 pontos e +15 fragmentos; erros não retiram vida nem impedem a continuidade. Reiniciar limpa todos os resultados educacionais.
 Cinco setores, oficina entre os quatro primeiros e chefe final no quinto. Drones, sentinelas e inimigos pesados; asteroides destrutíveis; escudo regenerativo; casco reparável; coleta de fragmentos; melhorias; propulsão e pulso com recarga.
 Pausar ao perder foco. Som começa desativado, inicializado apenas por gesto do jogador. Armazenamento local não é obrigatório para jogar. Preservar controles de teclado, mouse e toque, foco visível e instruções claras.
