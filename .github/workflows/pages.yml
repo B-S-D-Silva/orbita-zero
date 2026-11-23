@@ -1,4 +1,4 @@
-name: Verificar e publicar NEXUS
+name: Verificar e publicar ORBITA ZERO
 
 on:
   push:
@@ -25,14 +25,13 @@ jobs:
       - name: Verificar sintaxe e regras do jogo
         run: |
           node --check script.js
-          node --check puzzle.js
-          node tests/puzzle.test.js
-          node tests/mission.test.js
+          node --check game.js
+          node tests/game.test.js
       - name: Preparar somente arquivos públicos do site
         if: github.event_name != 'pull_request'
         run: |
           mkdir _site
-          cp index.html style.css script.js puzzle.js _site/
+          cp index.html style.css script.js game.js _site/
       - uses: actions/upload-pages-artifact@v3
         if: github.event_name != 'pull_request'
         with:

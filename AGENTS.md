@@ -1,34 +1,23 @@
-# NEXUS — orientações do projeto
+# ÓRBITA ZERO — orientações
 
-## Produto
-Jogo educativo de recuperação de um computador, com narrativa de missão e palavras cruzadas. Não usar tema de xadrez.
-Usar HTML, CSS e JavaScript puros, com index.html na raiz. Funcionar por arquivo local, sem instalação, servidor ou dependências de rede.
+## Objetivo atual
+Jogo espacial de ação e sobrevivência. A solicitação mais recente substituiu a cruzadinha e o tema de xadrez. Não restaurar essas mecânicas.
 
-## Requisitos obrigatórios
-- Pelo menos 12 palavras da lista: CPU, ULA, UC, REGISTRADORES, RAM, ROM, EEPROM, FLASH, CACHE, MEMORIADEMASSA, DMA, ADDRESSBUS, DATABUS, MICROCONTROLADOR, DUALCORE, QUADCORE.
-- Cada palavra cruza perpendicularmente com outra, com letras coincidentes, em um único conjunto conectado.
-- Pistas de até 15 palavras, numeradas, separadas em Horizontais e Verticais e correspondentes às casas iniciais.
-- Pistas originais, sem entregar a resposta ou expandir a sigla. O e-book não foi fornecido: não afirmar validação contra ele.
-- Digitação diretamente nas casas; botão Conferir com resultados por palavra; contador de acertos; Reiniciar limpa todas as casas e resultados.
+## Tecnologia e estrutura
+HTML, CSS e JavaScript puros; index.html na raiz. Sem servidor, compilação, fontes remotas, imagens externas ou bibliotecas.
+- game.js: simulação independente, exportada para Node e navegador.
+- script.js: desenho Canvas, comandos, áudio opcional, interface e recorde local.
+- style.css: identidade espacial e interface responsiva.
+- tests/game.test.js: verificações das regras da simulação.
 
-## Mecânicas
-Quatro subsistemas; +100 pontos por palavra correta validada; três sondas, cada uma revela uma letra por −50 pontos. A pontuação pode ser negativa no início. Repetir Conferir não concede pontos extras. Alterar uma palavra correta retira os pontos dela até nova validação. Sem limite de tempo, punição por erros ou bloqueio de tentativas.
-Preservar salvamento local com tratamento de indisponibilidade, navegação por teclado, foco visível e resultados textuais além de cores.
-
-## Arquivos
-- puzzle.js: termos, montagem e avaliação independentes da interface.
-- script.js: estado da missão, interação e persistência.
-- style.css: apresentação e adaptação responsiva.
-- tests/: verificações do tabuleiro e integração.
+## Regras
+Cinco setores, oficina entre os quatro primeiros e chefe final no quinto. Drones, sentinelas e inimigos pesados; asteroides destrutíveis; escudo regenerativo; casco reparável; coleta de fragmentos; melhorias; propulsão e pulso com recarga.
+Pausar ao perder foco. Som começa desativado, inicializado apenas por gesto do jogador. Armazenamento local não é obrigatório para jogar. Preservar controles de teclado, mouse e toque, foco visível e instruções claras.
 
 ## Verificação
-Executar node tests/puzzle.test.js, node tests/mission.test.js e node --check script.js. Verificar a interface no navegador quando possível, incluindo conferir, sonda e reinício.
+Executar node --check game.js, node --check script.js e node tests/game.test.js antes de publicar. Inspecionar a interface no navegador quando disponível.
 
-## Parte 3 — GitHub e versionamento
-- Repositório público: arqcomp-cruzadinha.
-- Manter no mínimo seis commits de trabalho real, distribuídos em pelo menos dois dias diferentes.
-- Usar datas reais: nunca retroagir datas ou criar commits vazios para simular desenvolvimento.
-- Mensagens no padrão tipo: descrição curta; tipos permitidos: feat, fix, style e docs.
-- README deve conter nome do jogo, como jogar, lista das palavras com pistas e link do site publicado.
-- Não publicar RA, e-mail pessoal, telefone, credenciais ou outros dados pessoais, inclusive nos metadados dos commits. Usar identidade técnica do projeto.
-- A implantação deve incluir somente index.html, style.css, script.js e puzzle.js. Testes devem passar antes de publicar.
+## Git e publicação
+O repositório existente mantém o nome arqcomp-cruzadinha para preservar endereço e histórico. O produto agora é ÓRBITA ZERO. Não renomear o repositório sem pedido.
+Usar commits reais com feat, fix, style ou docs e datas reais. Nunca forjar contribuições em dois dias. Não incluir dados pessoais ou credenciais. Usar identidade técnica do projeto.
+GitHub Actions deve testar e publicar apenas index.html, style.css, game.js e script.js.

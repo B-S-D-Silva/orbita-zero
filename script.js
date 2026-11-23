@@ -1,239 +1,86 @@
-/* Missão NEXUS: estado, renderização e interação sem dependências. */
 (() => {
-  const $ = selector => document.querySelector(selector);
-  const {words, rows, cols} = Crossword.generate();
-  const storageKey = 'nexus-recovery-v1';
-  const sectors = [
-    {name:'Processamento', icon:'⌘', terms:['CPU','ULA','UC','REGISTRADORES']},
-    {name:'Memória', icon:'▤', terms:['RAM','ROM','EEPROM','FLASH','CACHE','MEMORIADEMASSA']},
-    {name:'Transferência', icon:'⇄', terms:['DMA','ADDRESSBUS','DATABUS']},
-    {name:'Integração', icon:'◈', terms:['MICROCONTROLADOR','DUALCORE','QUADCORE']}
-  ];
-  const inputs = new Map(), squares = new Map(), memberships = new Map(), clues = new Map();
-  const revealed = new Set();
-  let active = words[0], solved = new Set(), hints = 3, elapsed = 0, checked = false;
-  let completeShown = false, zoom = 100, events = [], saveAvailable = true;
-  const sectorOf = word => sectors.findIndex(sector => sector.terms.includes(word.word));
-  const read = (r,c) => inputs.get(Crossword.key(r,c))?.value || '';
-  const time = () => `${String(Math.floor(elapsed / 60)).padStart(2,'0')}:${String(elapsed % 60).padStart(2,'0')}`;
-  const points = () => solved.size * 100 - (3 - hints) * 50;
-  const say = text => { $('#feedback').textContent = text; };
-
-  function log(message) {
-    events.push({time:time(), message});
-    events = events.slice(-25);
-    $('#event-log').replaceChildren(...events.slice(-3).map(event => {
-      const li = document.createElement('li'), stamp = document.createElement('span');
-      stamp.textContent = `[${event.time}]`; li.append(stamp, document.createTextNode(event.message)); return li;
-    }));
+  const $=s=>document.querySelector(s),{Game,W,H,sectorNames}=SpaceGame,game=new Game();
+  const canvas=$('#canvas'),ctx=canvas.getContext('2d'),keys=new Set();
+  let aim={x:W/2,y:0},shoot=false,auto=false,touch=false,target=null,activePointer=null,sound=false,audio=null,best=0,last=0,uiTimer=0,shake=0,announcement=0;
+  const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const stars=Array.from({length:220},()=>({x:Math.random()*W,y:Math.random()*H,r:Math.random()*1.3+.25,a:Math.random()*.6+.15}));
+  const logs=[];
+  try{best=Number(localStorage.getItem('orbita-zero-best'))||0;}catch{}
+  const clock=seconds=>`${String(Math.floor(seconds/60)).padStart(2,'0')}:${String(Math.floor(seconds%60)).padStart(2,'0')}`;
+  const padded=n=>String(Math.floor(n)).padStart(5,'0');
+  function log(text){logs.unshift({time:clock(game.time),text});logs.length=Math.min(3,logs.length);$('#log').replaceChildren(...logs.map(item=>{const li=document.createElement('li'),span=document.createElement('span');span.textContent=item.time;li.append(span,item.text);return li;}));}
+  function tone(frequency,duration=.06,type='sine',volume=.025){if(!sound||!audio)return;try{const o=audio.createOscillator(),g=audio.createGain();o.type=type;o.frequency.value=frequency;g.gain.setValueAtTime(volume,audio.currentTime);g.gain.exponentialRampToValueAtTime(.001,audio.currentTime+duration);o.connect(g);g.connect(audio.destination);o.start();o.stop(audio.currentTime+duration);}catch{}}
+  function resize(){const rect=canvas.getBoundingClientRect(),dpr=Math.min(devicePixelRatio||1,2);canvas.width=Math.round(rect.width*dpr);canvas.height=Math.round(rect.height*dpr);}
+  new ResizeObserver(resize).observe(canvas);resize();
+  function overlays(id){for(const key of ['start-screen','pause-screen','upgrade-screen','end-screen'])$('#'+key).hidden=key!==id;}
+  function start(){keys.clear();shoot=false;target=null;activePointer=null;logs.length=0;game.start();overlays(null);$('#pause').disabled=false;$('#pause').setAttribute('aria-label','Pausar partida');ui();canvas.focus();}
+  function pause(){if(game.state==='playing'){game.state='paused';keys.clear();shoot=false;target=null;activePointer=null;overlays('pause-screen');$('#pause').setAttribute('aria-label','Continuar partida');}else if(game.state==='paused'){game.state='playing';overlays(null);$('#pause').setAttribute('aria-label','Pausar partida');}}
+  function offers(){const p=game.player;$('#wallet').textContent=game.credits;$('#weapon-offer').textContent=p.weapon===4?'Nível máximo atingido':`Nível ${p.weapon+1} · ${40*p.weapon} ◈`;$('#shield-offer').textContent=p.shieldLevel===3?'Nível máximo atingido':`+30 de capacidade · ${35*p.shieldLevel} ◈`;
+    document.querySelector('[data-upgrade="weapon"]').disabled=p.weapon===4||game.credits<40*p.weapon;
+    document.querySelector('[data-upgrade="shield"]').disabled=p.shieldLevel===3||game.credits<35*p.shieldLevel;
+    document.querySelector('[data-upgrade="repair"]').disabled=p.hp===100||game.credits<30;
   }
-  function save() {
-    try {
-      localStorage.setItem(storageKey, JSON.stringify({version:1, values:Object.fromEntries([...inputs].map(([k,el]) => [k,el.value])), solved:[...solved], hints, elapsed, revealed:[...revealed], checked}));
-    } catch { saveAvailable = false; }
+  function ui(){const p=game.player;$('#hull').value=p.hp;$('#hull-text').textContent=`${Math.ceil(p.hp)}%`;$('#shield').max=p.maxShield;$('#shield').value=p.shield;$('#shield-text').textContent=Math.ceil(p.shield);$('#score').textContent=padded(game.score);$('#best').textContent=padded(best);$('#credits').textContent=`◈ ${game.credits}`;$('#weapon-level').textContent=`Nível ${p.weapon}`;$('#sector-number').innerHTML=`${String(game.sector).padStart(2,'0')}<span>/ 05</span>`;$('#sector-name').textContent=sectorNames[game.sector-1];
+    $('#remaining').textContent=game.sector===5?'CHEFE':game.remaining>0?`${Math.ceil(game.remaining)}s`:`${game.enemies.length} alvos`;
+    $('#objective').textContent=game.sector===5?'Destrua o Guardião para abrir a rota de fuga.':game.remaining>0?'Sobreviva e recolha fragmentos.':'Elimine os drones restantes para liberar o salto.';
+    $('#remaining-label').textContent=game.sector===5?'ROTA BLOQUEADA':'PRÓXIMA JANELA DE SALTO';
+    $('#boost-status').textContent=game.boostCooldown>0?`${game.boostCooldown.toFixed(1)}s`:'Pronta';$('#pulse-status').textContent=game.pulseCooldown>0?`${game.pulseCooldown.toFixed(1)}s`:'Pronto';
+    for(const [id,cooldown] of [['boost',game.boostCooldown],['pulse',game.pulseCooldown]]){$('#'+id).disabled=game.state!=='playing'||cooldown>0;$('#'+id).classList.toggle('cooling',cooldown>0);}
+    [...$('#route').children].forEach((node,i)=>{node.classList.toggle('current',i===game.sector-1);node.classList.toggle('done',i<game.sector-1);});
+    $('#arena-status').textContent=game.state==='playing'?`SETOR ${String(game.sector).padStart(2,'0')} / EM COMBATE`:game.state==='paused'?'TRANSMISSÃO PAUSADA':game.state==='upgrade'?'MANUTENÇÃO EM ÓRBITA':game.state==='won'?'ROTA DE FUGA ABERTA':game.state==='lost'?'SINAL PERDIDO':'AGUARDANDO PILOTO';
   }
-  function load() {
-    try {
-      const state = JSON.parse(localStorage.getItem(storageKey));
-      if (!state || state.version !== 1) return;
-      // Um salvamento inválido não deve restaurar parcialmente os recursos da missão.
-      if (!state.values || typeof state.values !== 'object' || Array.isArray(state.values)
-        || !Array.isArray(state.solved) || !Array.isArray(state.revealed)
-        || !Number.isInteger(state.hints) || state.hints < 0 || state.hints > 3
-        || !Number.isFinite(state.elapsed) || state.elapsed < 0) {
-        log('Salvamento incompatível ignorado. Uma nova missão foi iniciada.');
-        return;
-      }
-      for (const [k, value] of Object.entries(state.values || {})) {
-        if (inputs.has(k) && typeof value === 'string') inputs.get(k).value = Crossword.normalize(value).slice(0,1);
-      }
-      hints = Number.isInteger(state.hints) ? Math.max(0,Math.min(3,state.hints)) : 3;
-      elapsed = Number.isFinite(state.elapsed) ? Math.max(0,Math.floor(state.elapsed)) : 0;
-      checked = state.checked === true;
-      const results = Crossword.evaluate(words, read);
-      solved = new Set(state.solved.filter(id => Number.isInteger(id) && results[id]?.correct));
-      for (const k of state.revealed || []) if (inputs.has(k)) revealed.add(k);
-      completeShown = solved.size === words.length;
-      log('Sessão anterior recuperada. Continue de onde parou.');
-    } catch { saveAvailable = false; }
-  }
-
-  function selectWord(word, focus = true) {
-    active = word;
-    squares.forEach(square => square.classList.remove('selected'));
-    Crossword.coordinates(word).forEach(([r,c]) => squares.get(Crossword.key(r,c)).classList.add('selected'));
-    clues.forEach((button,id) => button.setAttribute('aria-pressed', String(id === word.id)));
-    $('#active-number').textContent = String(word.number).padStart(2,'0');
-    $('#active-direction').textContent = `${word.dir === 'A' ? 'HORIZONTAL' : 'VERTICAL'} / ${sectors[sectorOf(word)].name.toUpperCase()}`;
-    $('#active-clue').textContent = word.clue;
-    updateLetterProgress();
-    if (focus) {
-      const point = Crossword.coordinates(word).find(([r,c]) => !read(r,c)) || [word.r,word.c];
-      inputs.get(Crossword.key(...point)).focus({preventScroll:true});
-      squares.get(Crossword.key(...point)).scrollIntoView({block:'nearest',inline:'nearest'});
+  function events(){for(const event of game.events.splice(0)){
+    if(event.type==='shot')tone(470,.035,'triangle',.012);
+    if(event.type==='pickup')tone(950,.045,'sine',.018);
+    if(event.type==='kill')tone(100,.12,'sawtooth',.025);
+    if(event.type==='damage'){shake=reduced?0:9;tone(60,.18,'sawtooth',.04);}
+    if(event.type==='boost')tone(160,.2,'triangle',.03);
+    if(event.type==='pulse'){shake=reduced?0:4;tone(80,.4,'sine',.06);}
+    if(event.type==='sector'){$('#wave-announcement').textContent=`SETOR 0${game.sector} / ${sectorNames[game.sector-1].toUpperCase()}`;announcement=3;log(`Salto concluído. ${sectorNames[game.sector-1]}.`);}
+    if(event.type==='sector-clear'){overlays('upgrade-screen');$('#upgrade-title').textContent=`Setor ${game.sector} atravessado.`;$('#upgrade-feedback').textContent='Bônus de travessia: +20 fragmentos e +250 pontos.';offers();log('Zona segura. Janela de manutenção aberta.');}
+    if(event.type==='won'||event.type==='lost'){
+      const won=event.type==='won';if(game.score>best){best=game.score;try{localStorage.setItem('orbita-zero-best',String(best));}catch{}}
+      overlays('end-screen');$('#pause').disabled=true;$('#end-label').textContent=won?'TRANSMISSÃO RECEBIDA':'SINAL PERDIDO';$('#end-title').textContent=won?'Você encontrou o caminho.':'O vazio venceu.';$('#end-description').textContent=won?'O Guardião foi destruído. Sua nave atravessa a última órbita. Bem-vindo de volta, comandante.':`A Andorinha foi perdida no setor ${game.sector}. Cada expedição ensina uma nova rota.`;$('#end-score').textContent=padded(game.score);$('#end-kills').textContent=game.kills;$('#end-time').textContent=clock(game.time);log(won?'Rota de fuga aberta. Expedição concluída.':'Integridade crítica. Transmissão encerrada.');tone(won?660:90,.7,'triangle',.04);
     }
+  }}
+  function ship(x,y,angle,scale=1,preview=false){ctx.save();ctx.translate(x,y);ctx.rotate(angle+Math.PI/2);ctx.scale(scale,scale);
+    const flame=preview?22:game.boostTime>0?48:15+Math.sin(performance.now()*.03)*5;
+    ctx.shadowColor='#a294ff';ctx.shadowBlur=18;ctx.fillStyle='#ac9bff';ctx.beginPath();ctx.moveTo(-7,17);ctx.lineTo(-3,17+flame);ctx.lineTo(1,17);ctx.fill();ctx.beginPath();ctx.moveTo(3,17);ctx.lineTo(7,17+flame);ctx.lineTo(11,17);ctx.fill();ctx.shadowBlur=0;
+    const metal=ctx.createLinearGradient(-20,0,20,20);metal.addColorStop(0,'#e2f2ff');metal.addColorStop(.5,'#93abc6');metal.addColorStop(1,'#556f8d');ctx.fillStyle=metal;ctx.strokeStyle='#b6d2eb';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(0,-29);ctx.lineTo(25,21);ctx.lineTo(9,14);ctx.lineTo(0,24);ctx.lineTo(-9,14);ctx.lineTo(-25,21);ctx.closePath();ctx.fill();ctx.stroke();ctx.fillStyle='#79e0f0';ctx.shadowColor='#79e0f0';ctx.shadowBlur=9;ctx.beginPath();ctx.moveTo(0,-15);ctx.lineTo(5,7);ctx.lineTo(0,3);ctx.lineTo(-5,7);ctx.closePath();ctx.fill();ctx.restore();
   }
-  function updateLetterProgress() {
-    const count = Crossword.coordinates(active).filter(([r,c]) => read(r,c)).length;
-    $('#letter-progress').textContent = `${count} / ${active.word.length} letras preenchidas${solved.has(active.id) ? ' · CONEXÃO VALIDADA' : ''}`;
+  function background(t){ctx.fillStyle='#080f20';ctx.fillRect(0,0,W,H);
+    const nebula=ctx.createRadialGradient(890,240,20,890,240,620);nebula.addColorStop(0,'#44326665');nebula.addColorStop(.5,'#242f503a');nebula.addColorStop(1,'#080f2000');ctx.fillStyle=nebula;ctx.fillRect(0,0,W,H);
+    const cloud=ctx.createRadialGradient(300,640,10,300,640,450);cloud.addColorStop(0,'#21576528');cloud.addColorStop(1,'#080f2000');ctx.fillStyle=cloud;ctx.fillRect(0,0,W,H);
+    for(const star of stars){const y=(star.y+(reduced?0:t*(star.r*2)))%H;ctx.globalAlpha=star.a;ctx.fillStyle='#c3dafc';ctx.beginPath();ctx.arc(star.x,y,star.r,0,Math.PI*2);ctx.fill();}ctx.globalAlpha=1;
+    ctx.save();ctx.translate(910,267);ctx.rotate(-.25);ctx.strokeStyle='#acb7e42a';ctx.lineWidth=1;ctx.beginPath();ctx.ellipse(0,0,252,68,0,0,Math.PI*2);ctx.stroke();ctx.beginPath();ctx.ellipse(0,0,258,70,0,0,Math.PI*2);ctx.stroke();
+    const planet=ctx.createRadialGradient(-65,-65,5,10,10,174);planet.addColorStop(0,'#9a9bb8');planet.addColorStop(.35,'#5a647f');planet.addColorStop(.7,'#27334f');planet.addColorStop(1,'#090f20');ctx.shadowColor='#a9beff33';ctx.shadowBlur=30;ctx.fillStyle=planet;ctx.beginPath();ctx.arc(0,0,165,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;ctx.strokeStyle='#9cb6e044';ctx.lineWidth=2;ctx.beginPath();ctx.arc(0,0,166,Math.PI*.78,Math.PI*1.68);ctx.stroke();ctx.restore();
+    ctx.strokeStyle='#5c78960c';ctx.lineWidth=1;for(let x=0;x<W;x+=100){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}for(let y=0;y<H;y+=100){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
   }
-  function move(r,c,step) {
-    const points = Crossword.coordinates(active);
-    const index = points.findIndex(p => p[0] === r && p[1] === c);
-    const next = points[index + step];
-    if (next) inputs.get(Crossword.key(...next)).focus();
+  function enemy(e){ctx.save();ctx.translate(e.x,e.y);ctx.rotate(e.kind==='boss'?e.phase*.15:Math.atan2(game.player.y-e.y,game.player.x-e.x)+Math.PI/2);const boss=e.kind==='boss';ctx.strokeStyle=boss?'#f5a77b':e.kind==='shooter'?'#efa6d9':'#d28af4';ctx.fillStyle=boss?'#512f39':'#342548';ctx.shadowColor=ctx.strokeStyle;ctx.shadowBlur=12;ctx.lineWidth=2;ctx.beginPath();if(boss){for(let i=0;i<8;i++){const a=i/8*Math.PI*2;const x=Math.cos(a)*e.r,y=Math.sin(a)*e.r;i?ctx.lineTo(x,y):ctx.moveTo(x,y);}ctx.closePath();}else{ctx.moveTo(0,-e.r);ctx.lineTo(e.r,e.r*.65);ctx.lineTo(0,e.r*.25);ctx.lineTo(-e.r,e.r*.65);ctx.closePath();}ctx.fill();ctx.stroke();ctx.shadowBlur=0;ctx.fillStyle=boss?'#ffd6a0':'#f0bbff';ctx.beginPath();ctx.arc(0,0,boss?17:5,0,Math.PI*2);ctx.fill();if(boss){ctx.strokeStyle='#d8876650';ctx.beginPath();ctx.arc(0,0,e.r+15,0,Math.PI*2);ctx.stroke();}ctx.restore();if(boss||e.hp<e.maxHp){ctx.fillStyle='#382d3d';ctx.fillRect(e.x-e.r,e.y-e.r-13,e.r*2,3);ctx.fillStyle=boss?'#efa477':'#cf94f0';ctx.fillRect(e.x-e.r,e.y-e.r-13,e.r*2*Math.max(0,e.hp/e.maxHp),3);}}
+  function draw(t,dt){ctx.setTransform(canvas.width/W,0,0,canvas.height/H,0,0);background(t);ctx.save();if(shake>0){ctx.translate((Math.random()-.5)*shake,(Math.random()-.5)*shake);shake=Math.max(0,shake-dt*25);}
+    if(game.state==='ready'){ship(840,500,-.55,2.7,true);ctx.restore();return;}
+    for(const rock of game.rocks){ctx.save();ctx.translate(rock.x,rock.y);ctx.rotate(rock.angle);ctx.fillStyle='#32374a';ctx.strokeStyle='#636780';ctx.lineWidth=1.5;ctx.beginPath();for(let i=0;i<9;i++){const a=i/9*Math.PI*2,r=rock.r*(i%2?.8:1);i?ctx.lineTo(Math.cos(a)*r,Math.sin(a)*r):ctx.moveTo(Math.cos(a)*r,Math.sin(a)*r);}ctx.closePath();ctx.fill();ctx.stroke();ctx.fillStyle='#202738';ctx.beginPath();ctx.arc(rock.r*.2,-rock.r*.2,rock.r*.25,0,Math.PI*2);ctx.fill();ctx.restore();}
+    for(const pickup of game.pickups){ctx.save();ctx.translate(pickup.x,pickup.y);ctx.rotate(t*2);ctx.fillStyle='#f1c38d';ctx.shadowBlur=14;ctx.shadowColor='#eab77e';ctx.fillRect(-4,-4,8,8);ctx.restore();}
+    for(const e of game.enemies)enemy(e);
+    for(const [list,color] of [[game.bullets,'#a2f3f3'],[game.hostile,'#ff92ae']]){ctx.strokeStyle=color;ctx.fillStyle=color;ctx.shadowColor=color;ctx.shadowBlur=10;ctx.lineWidth=3;for(const b of list){ctx.beginPath();ctx.moveTo(b.x,b.y);ctx.lineTo(b.x-b.vx*.017,b.y-b.vy*.017);ctx.stroke();ctx.beginPath();ctx.arc(b.x,b.y,2.5,0,Math.PI*2);ctx.fill();}ctx.shadowBlur=0;}
+    const p=game.player;if(game.state!=='lost'&&(p.invincible<=0||Math.floor(t*16)%2)){ship(p.x,p.y,p.angle);if(p.shield>0){ctx.strokeStyle=`rgba(125,202,247,${.08+p.shield/p.maxShield*.18})`;ctx.lineWidth=1;ctx.beginPath();ctx.arc(p.x,p.y,29,0,Math.PI*2);ctx.stroke();}}
+    for(const e of game.effects){ctx.globalAlpha=Math.max(0,e.life/e.max);if(e.type==='pulse'){ctx.strokeStyle='#9feced';ctx.lineWidth=4;ctx.beginPath();ctx.arc(e.x,e.y,e.r*(1-e.life/e.max),0,Math.PI*2);ctx.stroke();}else{ctx.fillStyle=e.color;ctx.fillRect(e.x,e.y,e.r,e.r);}}ctx.globalAlpha=1;
+    if(target&&touch){ctx.strokeStyle='#8de8ed55';ctx.beginPath();ctx.arc(target.x,target.y,24,0,Math.PI*2);ctx.stroke();}
+    if(!touch&&game.state==='playing'){ctx.strokeStyle='#b5dcf17a';ctx.lineWidth=1;ctx.beginPath();ctx.arc(aim.x,aim.y,8,0,Math.PI*2);ctx.moveTo(aim.x-13,aim.y);ctx.lineTo(aim.x-5,aim.y);ctx.moveTo(aim.x+5,aim.y);ctx.lineTo(aim.x+13,aim.y);ctx.moveTo(aim.x,aim.y-13);ctx.lineTo(aim.x,aim.y-5);ctx.moveTo(aim.x,aim.y+5);ctx.lineTo(aim.x,aim.y+13);ctx.stroke();}
+    ctx.restore();
   }
-
-  function refresh() {
-    const results = Crossword.evaluate(words, read);
-    // Alterar uma resposta validada retira seu estado e seus pontos até a próxima conferência.
-    solved.forEach(id => { if (!results[id].correct) solved.delete(id); });
-    $('#score').textContent = `${solved.size} de ${words.length} palavras`;
-    $('#percent').textContent = `${Math.round(solved.size / words.length * 100)}%`;
-    $('#overall-bar').style.width = `${solved.size / words.length * 100}%`;
-    $('#points').textContent = `${points() < 0 ? '−' : ''}${String(Math.abs(points())).padStart(4,'0')}`;
-    $('#hint-count').textContent = `${hints} / 3`;
-    $('#hint-button').disabled = hints === 0 || solved.size === words.length;
-    $('#next-button').disabled = solved.size === words.length;
-    let online = 0;
-    sectors.forEach((sector,index) => {
-      const group = words.filter(word => sectorOf(word) === index);
-      const count = group.filter(word => solved.has(word.id)).length;
-      const node = $(`#sector-${index}`), ready = count === group.length;
-      if (ready) online++;
-      node.classList.toggle('online',ready);
-      node.querySelector('small').textContent = `${count}/${group.length}`;
-      node.querySelector('.sector-track span').style.width = `${count/group.length*100}%`;
-      node.querySelector('.sector-status').textContent = ready ? '● ONLINE' : count ? '◌ RECUPERANDO' : '○ AGUARDANDO SINAL';
-    });
-    $('#sector-count').textContent = `${online} / 4`;
-    $('#core-status').textContent = online === 4 ? 'ONLINE' : online ? 'BOOTING' : 'OFFLINE';
-    $('#mission-status').textContent = solved.size === words.length ? '● SISTEMA OPERACIONAL' : '● RECUPERAÇÃO EM ANDAMENTO';
-    const earned = [solved.size > 0,online > 0,solved.size === words.length];
-    [...$('#achievements').children].forEach((el,i) => {
-      const labels = ['Primeiro sinal','Subsistema online','Recuperação total'];
-      el.textContent = `${earned[i] ? '✓' : '○'} ${labels[i]}`; el.classList.toggle('earned',earned[i]);
-    });
-    results.forEach(result => {
-      const button = clues.get(result.id), correct = solved.has(result.id);
-      button.classList.toggle('correct',correct); button.classList.toggle('incorrect',checked && !correct);
-      button.querySelector('.result').textContent = correct ? '✓ Certa · conexão restaurada' : checked ? '× Errada ou incompleta' : '';
-    });
-    squares.forEach((square,k) => {
-      const correct = memberships.get(k).some(word => solved.has(word.id));
-      square.classList.toggle('right',correct);
-      square.classList.toggle('wrong',checked && !correct && Boolean(inputs.get(k).value));
-      square.classList.toggle('hinted',revealed.has(k));
-    });
-    updateLetterProgress();
-  }
-
-  function check() {
-    const before = solved.size;
-    const priorOnline = sectors.map((_,index) => words.filter(w => sectorOf(w) === index).every(w => solved.has(w.id)));
-    solved = new Set(Crossword.evaluate(words,read).filter(r => r.correct).map(r => r.id));
-    checked = true; refresh();
-    const gain = solved.size - before;
-    log(gain > 0 ? `+${gain * 100} pontos / ${gain} nova(s) conexão(ões) restaurada(s).` : 'Diagnóstico executado. Revise as conexões pendentes.');
-    sectors.forEach((sector,index) => {
-      if (!priorOnline[index] && words.filter(w => sectorOf(w) === index).every(w => solved.has(w.id))) log(`Subsistema ${sector.name.toUpperCase()} está online.`);
-    });
-    say(`${solved.size} palavras certas; ${words.length - solved.size} erradas ou incompletas. ${gain > 0 ? `+${gain*100} pontos nesta conferência.` : 'Revise os diagnósticos e tente novamente.'}`);
-    if (solved.size === words.length && !completeShown) {
-      completeShown = true; log('BOOT COMPLETO. Todos os subsistemas operacionais.');
-      $('#final-stats').replaceChildren(...[[points(),'PONTOS'],[time(),'TEMPO'],[3-hints,'SONDAS USADAS']].map(([value,label]) => {
-        const div = document.createElement('div'), b = document.createElement('b'); b.textContent = value; div.append(b,label); return div;
-      }));
-      $('#complete-dialog').showModal(); say('Missão concluída. NEXUS restaurado com sucesso.');
-    }
-    save();
-  }
-  function hint() {
-    if (!hints) return;
-    const point = Crossword.coordinates(active).find(([r,c],i) => read(r,c) !== active.word[i]);
-    if (!point) { say('Esta palavra já está preenchida corretamente. Confira ou selecione outro diagnóstico.'); return; }
-    const index = Crossword.coordinates(active).findIndex(p => p[0] === point[0] && p[1] === point[1]);
-    inputs.get(Crossword.key(...point)).value = active.word[index];
-    revealed.add(Crossword.key(...point)); hints--;
-    refresh(); save();
-    log(`Sonda aplicada ao diagnóstico ${active.number}. Uma letra recuperada. −50 pontos.`);
-    say('Uma letra foi revelada na palavra selecionada. Use Conferir para validar a conexão.');
-    inputs.get(Crossword.key(...point)).focus();
-  }
-  function render() {
-    words.forEach(word => Crossword.coordinates(word).forEach(([r,c]) => {
-      const k = Crossword.key(r,c); memberships.set(k,[...(memberships.get(k)||[]),word]);
-    }));
-    $('#board').style.setProperty('--cols',cols);
-    $('#matrix-size').textContent = `MATRIZ ${rows} × ${cols} / ${words.length} CONEXÕES`;
-    $('#clue-total').textContent = words.length;
-    for (let r=0;r<rows;r++) for (let c=0;c<cols;c++) {
-      const k = Crossword.key(r,c), related = memberships.get(k), square = document.createElement('div');
-      square.className = related ? 'square' : 'blank';
-      if (!related) { square.setAttribute('aria-hidden','true'); $('#board').append(square); continue; }
-      const start = related.find(w => w.r === r && w.c === c);
-      if (start) { const number = document.createElement('span'); number.className = 'cell-number'; number.textContent = start.number; square.append(number); }
-      const input = document.createElement('input'); input.className = 'cell'; input.maxLength = 1; input.autocomplete = 'off'; input.spellcheck = false;
-      input.setAttribute('autocapitalize','characters'); input.setAttribute('aria-label',`Linha ${r+1}, coluna ${c+1}. Pistas ${related.map(w=>w.number).join(' e ')}.`);
-      input.addEventListener('focus',() => { if (!related.includes(active)) selectWord(related[0],false); input.select(); });
-      input.addEventListener('input',() => { input.value = Crossword.normalize(input.value).slice(0,1); refresh(); save(); if (input.value) move(r,c,1); });
-      input.addEventListener('keydown',event => {
-        const offsets = {ArrowLeft:[0,-1],ArrowRight:[0,1],ArrowUp:[-1,0],ArrowDown:[1,0]};
-        if (offsets[event.key]) {
-          event.preventDefault(); const [dr,dc] = offsets[event.key];
-          selectWord(related.find(w=>w.dir === (dr?'D':'A')) || active,false);
-          inputs.get(Crossword.key(r+dr,c+dc))?.focus();
-        } else if (event.key === 'Enter') { event.preventDefault(); selectWord(related.find(w=>w.id !== active.id) || active,false); }
-        else if (event.key === 'Backspace' && !input.value) { event.preventDefault(); move(r,c,-1); }
-      });
-      square.append(input); $('#board').append(square); inputs.set(k,input); squares.set(k,square);
-    }
-    words.forEach(word => {
-      const li=document.createElement('li'),button=document.createElement('button'); button.type='button';button.className='clue'; li.dataset.sector = sectorOf(word);
-      const num=document.createElement('span');num.className='clue-number';num.textContent=String(word.number).padStart(2,'0');
-      const text=document.createElement('span');text.textContent=word.clue;
-      const size=document.createElement('small');size.textContent=`${word.word.length} LETRAS · ${sectors[sectorOf(word)].name.toUpperCase()}`;
-      const result=document.createElement('span');result.className='result';text.append(size,result);button.append(num,text);button.addEventListener('click',()=>selectWord(word));
-      clues.set(word.id,button);li.append(button);$(word.dir==='A'?'#across-clues':'#down-clues').append(li);
-    });
-    $('#across-count').textContent=words.filter(w=>w.dir==='A').length;
-    $('#down-count').textContent=words.filter(w=>w.dir==='D').length;
-    sectors.forEach((sector,index) => {
-      const el=document.createElement('button');el.type='button';el.className='sector';el.id=`sector-${index}`;
-      el.innerHTML=`<span class="sector-top"><span class="sector-icon">${sector.icon}</span><b>${sector.name}</b><small></small></span><span class="sector-track" style="display:block"><span></span></span><span class="sector-status"></span>`;
-      el.addEventListener('click',()=> { $('#sector-filter').value=String(index); filter(); selectWord(words.find(w=>sectorOf(w)===index && !solved.has(w.id)) || words.find(w=>sectorOf(w)===index)); });
-      $('#sectors').append(el);
-    });
-  }
-  function filter() {
-    const value=$('#sector-filter').value; let visible=0;
-    document.querySelectorAll('.clue-lists li').forEach(li=> { li.hidden=value!=='all' && li.dataset.sector!==value;if(!li.hidden)visible++; });
-    $('#filter-empty').hidden=visible>0;
-  }
-  $('#check-button').addEventListener('click',check);
-  $('#hint-button').addEventListener('click',hint);
-  $('#next-button').addEventListener('click',() => {
-    const index = words.findIndex(word => word.id === active.id);
-    const ordered = [...words.slice(index + 1), ...words.slice(0, index + 1)];
-    const next = ordered.find(word => !solved.has(word.id));
-    if (!next) return;
-    // Mostrar a pista mesmo quando o filtro anterior era de outro subsistema.
-    $('#sector-filter').value='all'; filter(); selectWord(next);
-    say(`Diagnóstico ${next.number} selecionado. Resolva esta conexão pendente.`);
-  });
-  $('#sector-filter').addEventListener('change',filter);
-  $('#reset-button').addEventListener('click',()=> {
-    inputs.forEach(input=>{input.value='';});solved.clear();revealed.clear();hints=3;elapsed=0;checked=false;completeShown=false;events=[];
-    $('#sector-filter').value='all';filter();refresh();selectWord(words[0],false);save();$('#timer').textContent=time();
-    log('Nova operação iniciada. Aguardando conexões.');say('Missão reiniciada. Todas as casas e resultados foram limpos.');
-  });
-  function setZoom(step) { zoom=Math.max(80,Math.min(150,zoom+step));$('#board').style.setProperty('--cell',`${30*zoom/100}px`);$('#zoom-label').textContent=`${zoom}%`; }
-  $('#zoom-out').addEventListener('click',()=>setZoom(-10));$('#zoom-in').addEventListener('click',()=>setZoom(10));
-  $('#help').addEventListener('click',()=>$('#help-dialog').showModal());
-  document.querySelectorAll('[data-close]').forEach(button=>button.addEventListener('click',()=>document.getElementById(button.dataset.close).close()));
-  render();load();refresh();selectWord(words[0],false);$('#timer').textContent=time();
-  if(!events.length)log('Falha geral detectada. Protocolo NEXUS iniciado.');
-  if(!saveAvailable)say('Armazenamento indisponível. A missão funciona, mas não será salva ao fechar a página.');
-  setInterval(()=> {if(solved.size<words.length && !document.hidden){elapsed++;$('#timer').textContent=time();if(elapsed%10===0)save();}},1000);
-  window.addEventListener('pagehide',save);
+  function frame(ms){const dt=Math.min(.05,last?(ms-last)/1000:0);last=ms;if(game.state==='playing'){game.step(dt,{dx:(keys.has('KeyD')||keys.has('ArrowRight')?1:0)-(keys.has('KeyA')||keys.has('ArrowLeft')?1:0),dy:(keys.has('KeyS')||keys.has('ArrowDown')?1:0)-(keys.has('KeyW')||keys.has('ArrowUp')?1:0),target:touch?target:null,aim,autoAim:touch,fire:shoot||auto||keys.has('Space')||touch});}events();draw(ms/1000,dt);announcement=Math.max(0,announcement-dt);$('#wave-announcement').classList.toggle('show',announcement>0&&game.state==='playing');uiTimer+=dt;if(uiTimer>.1){ui();uiTimer=0;}requestAnimationFrame(frame);}
+  function position(event){const r=canvas.getBoundingClientRect();return{x:(event.clientX-r.left)/r.width*W,y:(event.clientY-r.top)/r.height*H};}
+  canvas.addEventListener('pointerdown',event=>{if(game.state!=='playing')return;canvas.setPointerCapture(event.pointerId);activePointer=event.pointerId;touch=event.pointerType!=='mouse';if(touch)target=position(event);else{aim=position(event);shoot=true;}event.preventDefault();});
+  canvas.addEventListener('pointermove',event=>{if(event.pointerType==='mouse'){aim=position(event);touch=false;}else if(event.pointerId===activePointer)target=position(event);});
+  const release=event=>{if(event.pointerId===activePointer){shoot=false;target=null;activePointer=null;}};canvas.addEventListener('pointerup',release);canvas.addEventListener('pointercancel',release);
+  window.addEventListener('keydown',event=>{if($('#help-dialog').open)return;const supported=['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowLeft','ArrowDown','ArrowRight','Space','ShiftLeft','ShiftRight','KeyE','KeyP','Escape'];if(!supported.includes(event.code))return;if(game.state==='playing'||game.state==='paused')event.preventDefault();keys.add(event.code);if(!event.repeat){if(event.code==='KeyP'||event.code==='Escape')pause();if(event.code.startsWith('Shift'))game.boost();if(event.code==='KeyE')game.pulse();}});
+  window.addEventListener('keyup',event=>keys.delete(event.code));window.addEventListener('blur',()=>{keys.clear();shoot=false;if(game.state==='playing')pause();});document.addEventListener('visibilitychange',()=>{if(document.hidden&&game.state==='playing')pause();});
+  $('#start').addEventListener('click',start);$('#restart').addEventListener('click',start);$('#restart-pause').addEventListener('click',start);$('#pause').addEventListener('click',pause);$('#resume').addEventListener('click',pause);$('#boost').addEventListener('click',()=>game.boost());$('#pulse').addEventListener('click',()=>game.pulse());
+  $('#auto-fire').addEventListener('click',()=>{auto=!auto;$('#auto-fire').textContent=`Disparo automático: ${auto?'on':'off'}`;$('#auto-fire').setAttribute('aria-pressed',String(auto));});
+  $('#sound').addEventListener('click',()=>{sound=!sound;if(sound){try{audio??=new (window.AudioContext||window.webkitAudioContext)();audio.resume();}catch{sound=false;}}$('#sound').textContent=`Som: ${sound?'on':'off'}`;$('#sound').setAttribute('aria-pressed',String(sound));if(sound)tone(600,.1);});
+  $('#help').addEventListener('click',()=>{if(game.state==='playing')pause();$('#help-dialog').showModal();});for(const id of ['close-help','help-done'])$('#'+id).addEventListener('click',()=>$('#help-dialog').close());
+  document.querySelectorAll('[data-upgrade]').forEach(button=>button.addEventListener('click',()=>{if(game.buy(button.dataset.upgrade)){$('#upgrade-feedback').textContent='Melhoria instalada. A Andorinha está pronta para o próximo salto.';log('Melhoria de equipamento instalada.');tone(700,.12);offers();ui();}}));
+  $('#next-sector').addEventListener('click',()=>{game.next();keys.clear();shoot=false;overlays(null);ui();});
+  canvas.setAttribute('tabindex','0');ui();requestAnimationFrame(frame);
 })();
