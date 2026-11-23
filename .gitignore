@@ -1,0 +1,15 @@
+# Configurações locais e credenciais nunca pertencem ao repositório público.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.log
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+node_modules/
+coverage/
+.codex/
+.agents/

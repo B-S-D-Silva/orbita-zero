@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b111b">
+  <title>NEXUS — Protocolo de recuperação</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="puzzle.js" defer></script>
+  <script src="script.js" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="index.html" aria-label="Nexus, início"><span class="brand-icon">N</span>NEXUS<span class="brand-sub">RECOVERY SYSTEM</span></a>
+    <span class="connection"><i></i> CONEXÃO LOCAL SEGURA</span>
+    <button id="help" class="quiet">? Como jogar</button>
+  </header>
+  <main>
+    <section class="mission-heading">
+      <div><p class="eyebrow">SIMULAÇÃO EDUCACIONAL / MISSÃO 001</p><h1>O sistema caiu.<br><span>Você é o protocolo de recuperação.</span></h1><p class="subtitle">Reconstrua as conexões. Restaure os módulos. Traga o NEXUS de volta.</p></div>
+      <div class="session"><span>TEMPO DE OPERAÇÃO</span><strong id="timer">00:00</strong><small>Sem contagem regressiva</small></div>
+    </section>
+    <section class="metrics" aria-label="Telemetria da missão">
+      <div><span class="metric-icon">⌘</span><p>CONEXÕES RESTAURADAS<strong id="score">0 de 16 palavras</strong></p><span id="percent">0%</span></div>
+      <div><span class="metric-icon">ϟ</span><p>PONTUAÇÃO<strong id="points">0000</strong></p><small>+100 / conexão</small></div>
+      <div><span class="metric-icon">◇</span><p>SONDAS DISPONÍVEIS<strong id="hint-count">3 / 3</strong></p><small>Revelam uma letra</small></div>
+      <div><span class="metric-icon">◎</span><p>SUBSISTEMAS ONLINE<strong id="sector-count">0 / 4</strong></p><small>Objetivo da missão</small></div>
+    </section>
+    <div class="workspace">
+      <aside class="systems panel">
+        <div class="panel-heading"><span>01 / SUBSISTEMAS</span><span class="tiny-led"></span></div>
+        <div class="core-visual" aria-hidden="true"><div class="orbit orbit-one"></div><div class="orbit orbit-two"></div><div class="core"><span>NX</span><small id="core-status">OFFLINE</small></div><i class="sat s1"></i><i class="sat s2"></i><i class="sat s3"></i></div>
+        <p class="systems-description">Cada resposta recupera um componente da arquitetura.</p>
+        <div id="sectors" class="sectors"></div>
+        <div class="objective"><span class="eyebrow">OBJETIVO PRINCIPAL</span><p>Restaurar todos os componentes e executar a reinicialização do NEXUS.</p><div class="overall-track"><span id="overall-bar"></span></div></div>
+        <div class="medals"><p class="eyebrow">REGISTROS DE CONQUISTA</p><div id="achievements"><span>○ Primeiro sinal</span><span>○ Subsistema online</span><span>○ Recuperação total</span></div></div>
+      </aside>
+      <section class="board-panel panel" aria-labelledby="board-title">
+        <div class="board-heading"><div><p class="eyebrow">02 / MATRIZ DE CONEXÕES</p><h2 id="board-title">Reconstrua o circuito</h2></div><span class="status-pill" id="mission-status">● RECUPERAÇÃO EM ANDAMENTO</span></div>
+        <div class="board-toolbar"><span><i class="tiny-led"></i> <span id="matrix-size">MATRIZ</span></span><div><button id="zoom-out" class="icon-button" aria-label="Diminuir casas">−</button><span id="zoom-label">100%</span><button id="zoom-in" class="icon-button" aria-label="Aumentar casas">+</button></div></div>
+        <div class="board-viewport"><div id="board" class="board" role="group" aria-label="Matriz de palavras cruzadas"></div></div>
+        <div class="selected-clue"><span id="active-number">01</span><div><small id="active-direction">HORIZONTAL / SELECIONADA</small><p id="active-clue"></p><span id="letter-progress"></span></div></div>
+        <div class="game-actions"><button id="check-button" class="primary">⌁ Conferir conexões</button><button id="hint-button" class="secondary">◇ Usar sonda <small>−50 pts</small></button><button id="reset-button" class="quiet">↺ Reiniciar</button></div>
+        <p id="feedback" class="feedback" role="status">Selecione uma pista e digite nas casas para iniciar a recuperação.</p>
+        <div class="board-legend"><span><i class="legend-box selected"></i>Selecionada</span><span><i class="legend-box right"></i>Restaurada</span><span><i class="legend-box wrong"></i>Revisar</span><span class="keyboard-tip">SETAS navegar · ENTER alternar</span></div>
+      </section>
+      <aside class="clues-panel panel" aria-label="Pistas numeradas">
+        <div class="panel-heading"><span>03 / BANCO DE DIAGNÓSTICOS</span><span id="clue-total">16</span></div>
+        <p class="clues-intro">Identifique o componente de cada descrição para reativar as conexões.</p>
+        <label class="filter-label" for="sector-filter">FILTRAR POR SUBSISTEMA</label><select id="sector-filter"><option value="all">Todos os subsistemas</option><option value="0">Processamento</option><option value="1">Memória</option><option value="2">Transferência</option><option value="3">Integração</option></select>
+        <div class="clue-lists"><section><h3>→ Horizontais <span id="across-count"></span></h3><ol id="across-clues"></ol></section><section><h3>↓ Verticais <span id="down-count"></span></h3><ol id="down-clues"></ol></section><p id="filter-empty" hidden>Nenhum diagnóstico neste filtro.</p></div>
+      </aside>
+    </div>
+    <section class="terminal panel" aria-label="Registro da operação"><div class="terminal-title"><span class="tiny-led"></span> REGISTRO DO SISTEMA <span>LIVE</span></div><ol id="event-log" aria-live="polite"></ol></section>
+    <footer><span>NEXUS <b>v.1.0</b> / LABORATÓRIO DE ARQUITETURA</span><span>16 componentes. Um sistema para recuperar.</span></footer>
+  </main>
+  <dialog id="help-dialog"><button class="dialog-close quiet" data-close="help-dialog" aria-label="Fechar ajuda">×</button><p class="eyebrow">MANUAL DO OPERADOR</p><h2>Do apagão à recuperação.</h2><p>Uma falha interrompeu os quatro subsistemas do NEXUS. Decifre as pistas para reconstruir os componentes do computador.</p><ol class="instructions"><li><b>Investigue.</b> Clique em uma pista horizontal ou vertical. As casas correspondentes serão destacadas.</li><li><b>Reconecte.</b> Digite diretamente nas casas. Use as setas para navegar e Enter para alternar a direção em cruzamentos.</li><li><b>Valide.</b> Conferir mostra quais palavras estão certas e erradas. Cada novo acerto vale 100 pontos.</li><li><b>Peça apoio.</b> Você tem três sondas. Cada uma revela uma letra da palavra selecionada e desconta 50 pontos.</li><li><b>Restaure.</b> Complete os quatro subsistemas. Não há limite de tempo nem punição por tentar novamente.</li></ol><p class="dialog-note">Seu progresso é salvo neste navegador quando o armazenamento local está disponível. Reiniciar limpa toda a missão.</p><button class="primary" data-close="help-dialog">Iniciar operação →</button></dialog>
+  <dialog id="complete-dialog"><p class="eyebrow">PROTOCOLO CONCLUÍDO</p><div class="complete-icon">✓</div><h2>NEXUS está de volta.</h2><p>Todas as conexões foram restauradas. Os quatro subsistemas estão operacionais.</p><div id="final-stats" class="final-stats"></div><button class="primary" data-close="complete-dialog">Inspecionar sistema →</button></dialog>
+</body>
+</html>
