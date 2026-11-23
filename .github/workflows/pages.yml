@@ -17,6 +17,8 @@ concurrency:
 jobs:
   verify:
     runs-on: ubuntu-latest
+    outputs:
+      pages-enabled: ${{ steps.pages.outputs.enabled }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -27,18 +29,30 @@ jobs:
           node --check script.js
           node --check game.js
           node tests/game.test.js
-      - name: Preparar somente arquivos públicos do site
+      - name: Verificar disponibilidade do GitHub Pages
+        id: pages
         if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh api "repos/${{ github.repository }}/pages" > /dev/null 2>&1; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Testes concluidos. Ative Pages em Settings > Pages (GitHub Actions) para publicar. Repositorios privados exigem um plano compativel."
+          fi
+      - name: Preparar somente arquivos públicos do site
+        if: github.event_name != 'pull_request' && steps.pages.outputs.enabled == 'true'
         run: |
           mkdir _site
           cp index.html style.css script.js game.js _site/
       - uses: actions/upload-pages-artifact@v3
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && steps.pages.outputs.enabled == 'true'
         with:
           path: _site
 
   deploy:
-    if: github.event_name != 'pull_request'
+    if: github.event_name != 'pull_request' && needs.verify.outputs.pages-enabled == 'true'
     needs: verify
     runs-on: ubuntu-latest
     permissions:

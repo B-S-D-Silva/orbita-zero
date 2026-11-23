@@ -2,9 +2,13 @@
 
 Arcade espacial de ação e sobrevivência. Pilote a interceptora Andorinha por cinco setores, enfrente drones, atravesse asteroides e derrote o Guardião para abrir uma rota de fuga.
 
-**[Jogar no navegador](https://b-s-d-silva.github.io/arqcomp-cruzadinha/)**
+**Endereço do GitHub Pages:** [ÓRBITA ZERO](https://b-s-d-silva.github.io/meu-primeiro-rep/).
 
-O projeto foi transformado em um jogo espacial a pedido do usuário. O repositório conserva o nome original para preservar endereço e histórico; a cruzadinha foi substituída.
+**Publicação pendente:** o repositório está privado e o plano atual não permite GitHub Pages nessa condição. O endereço acima só ficará ativo após habilitar Pages com um plano compatível ou tornar o repositório público. O workflow executa os testes e pula a implantação enquanto Pages não estiver habilitado; depois, use Actions → Verificar e publicar ORBITA ZERO → Run workflow.
+
+**Repositório:** [meu-primeiro-rep](https://github.com/B-S-D-Silva/meu-primeiro-rep).
+
+O projeto foi transformado em um jogo espacial a pedido do usuário. A cruzadinha foi substituída, e os históricos anteriores são preservados.
 
 ## Como jogar
 
@@ -39,6 +43,6 @@ Execute `node --check game.js`, `node --check script.js` e `node tests/game.test
 
 ## Publicação e versionamento
 
-GitHub Actions testa e publica no GitHub Pages após cada push em main. Pull requests executam apenas verificações. Usar commits reais com feat, fix, style e docs. Contribuições em dois dias precisam ser trabalho real em dias diferentes; datas não são manipuladas.
+GitHub Actions testa e publica no GitHub Pages após cada push em main, quando Pages estiver habilitado e disponível no plano da conta. Em Settings → Pages, selecionar GitHub Actions como fonte. O site fica na raiz e usa caminhos relativos, compatíveis com /meu-primeiro-rep/. Pull requests executam apenas verificações. Usar commits reais com feat, fix, style e docs. Contribuições em dois dias precisam ser trabalho real em dias diferentes; datas não são manipuladas.
 
 Sem bibliotecas ou recursos visuais externos: cenário, naves, planetas e efeitos são desenhados com Canvas e SVG; áudio gerado com Web Audio.
