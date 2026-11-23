@@ -17,6 +17,9 @@ concurrency:
 jobs:
   verify:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: read
     outputs:
       pages-enabled: ${{ steps.pages.outputs.enabled }}
     steps:
