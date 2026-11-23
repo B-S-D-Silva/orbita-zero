@@ -12,7 +12,15 @@ O projeto foi transformado em um jogo espacial a pedido do usuário. A cruzadinh
 
 ## Como jogar
 
-Clique em **Iniciar expedição**. Sobreviva até o cronômetro do setor zerar e elimine os inimigos restantes para liberar o salto. Entre os setores, invista fragmentos em melhorias. No quinto, destrua o chefe.
+Clique em **Iniciar expedição**. Antes do combate, responda às perguntas do computador de bordo. Depois, sobreviva até o cronômetro do setor zerar e elimine os inimigos restantes para liberar o salto. Entre os setores, invista fragmentos em melhorias. No quinto, responda à calibração final e destrua o chefe.
+
+## Perguntas de arquitetura de computadores
+
+São 16 perguntas de múltipla escolha, sem repetição: três antes de cada um dos quatro primeiros setores e quatro antes do último. Os temas são CPU, ULA, UC, RAM, ROM, cache, EEPROM, Flash, memória de massa, registradores, DMA, data bus, address bus, microcontrolador, dual core e quad core.
+
+A nave e o cronômetro ficam parados durante as perguntas. Selecione uma alternativa para ver o resultado, a resposta correta e a explicação; depois use **Próxima pergunta** ou **Liberar navegação**. Cada acerto vale **100 pontos e 15 fragmentos**, que podem financiar melhorias na oficina. Errar não custa vida ou pontos e não bloqueia a partida. Não é possível repetir a resposta para acumular bônus.
+
+O painel educacional mostra acertos e perguntas respondidas; o relatório final também inclui o resultado. Reiniciar limpa a rodada e o contador. As perguntas usam conceitos gerais; o e-book da atividade não foi fornecido para comparação.
 
 | Controle | Ação |
 | --- | --- |

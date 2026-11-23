@@ -12,7 +12,34 @@
   function tone(frequency,duration=.06,type='sine',volume=.025){if(!sound||!audio)return;try{const o=audio.createOscillator(),g=audio.createGain();o.type=type;o.frequency.value=frequency;g.gain.setValueAtTime(volume,audio.currentTime);g.gain.exponentialRampToValueAtTime(.001,audio.currentTime+duration);o.connect(g);g.connect(audio.destination);o.start();o.stop(audio.currentTime+duration);}catch{}}
   function resize(){const rect=canvas.getBoundingClientRect(),dpr=Math.min(devicePixelRatio||1,2);canvas.width=Math.round(rect.width*dpr);canvas.height=Math.round(rect.height*dpr);}
   new ResizeObserver(resize).observe(canvas);resize();
-  function overlays(id){for(const key of ['start-screen','pause-screen','upgrade-screen','end-screen'])$('#'+key).hidden=key!==id;}
+  function overlays(id){for(const key of ['start-screen','pause-screen','upgrade-screen','end-screen','quiz-screen'])$('#'+key).hidden=key!==id;$('#arena').classList.toggle('question-mode',id==='quiz-screen');}
+  function showQuestion(){
+    const quiz=game.quiz,question=quiz.questions[quiz.index];
+    overlays('quiz-screen');keys.clear();shoot=false;target=null;activePointer=null;
+    $('#quiz-round').textContent=`SETOR ${game.sector} · ${quiz.index+1}/${quiz.questions.length}`;
+    $('#quiz-question').textContent=question.prompt;
+    $('#quiz-dots').replaceChildren(...quiz.questions.map((_,i)=>{const dot=document.createElement('i');dot.className=i<quiz.index?'done':i===quiz.index?'active':'';return dot;}));
+    $('#quiz-explanation').hidden=true;$('#quiz-explanation').textContent='';
+    $('#quiz-next').disabled=true;$('#quiz-next').textContent=quiz.index===quiz.questions.length-1?'Liberar navegação →':'Próxima pergunta →';
+    $('#quiz-options').replaceChildren(...question.choices.map((choice,index)=>{
+      const button=document.createElement('button');button.type='button';
+      const number=document.createElement('span');number.textContent=String(index+1).padStart(2,'0');
+      button.append(number,choice.text);button.addEventListener('click',()=>answerQuestion(index));return button;
+    }));
+    $('#quiz-total').textContent=`${game.questionsCorrect} acertos / ${game.questionsAnswered} respostas`;
+    $('.quiz-content').focus({preventScroll:true});ui();
+  }
+  function answerQuestion(index){
+    const correct=game.answerQuestion(index);if(correct===null)return;
+    const question=game.quiz.questions[game.quiz.index];
+    [...$('#quiz-options').children].forEach((button,i)=>{button.disabled=true;button.classList.toggle('answer-correct',question.choices[i].correct);button.classList.toggle('answer-wrong',i===index&&!correct);
+      if(question.choices[i].correct)button.append(' ✓ Resposta correta');else if(i===index)button.append(' × Sua resposta');
+    });
+    const explanation=$('#quiz-explanation');explanation.hidden=false;explanation.classList.toggle('incorrect',!correct);
+    explanation.textContent=`${correct?'Sinal calibrado! +100 pontos e +15 fragmentos.':'Resposta incorreta. Sem penalidade; revise a explicação.'} ${question.explanation}`;
+    $('#quiz-next').disabled=false;$('#quiz-total').textContent=`${game.questionsCorrect} acertos / ${game.questionsAnswered} respostas`;
+    log(`${question.topic}: ${correct?'resposta correta, +15 fragmentos.':'revisão registrada.'}`);tone(correct?780:190,.12);ui();$('#quiz-next').focus({preventScroll:true});
+  }
   function start(){keys.clear();shoot=false;target=null;activePointer=null;logs.length=0;game.start();overlays(null);$('#pause').disabled=false;$('#pause').setAttribute('aria-label','Pausar partida');ui();canvas.focus();}
   function pause(){if(game.state==='playing'){game.state='paused';keys.clear();shoot=false;target=null;activePointer=null;overlays('pause-screen');$('#pause').setAttribute('aria-label','Continuar partida');}else if(game.state==='paused'){game.state='playing';overlays(null);$('#pause').setAttribute('aria-label','Pausar partida');}}
   function offers(){const p=game.player;$('#wallet').textContent=game.credits;$('#weapon-offer').textContent=p.weapon===4?'Nível máximo atingido':`Nível ${p.weapon+1} · ${40*p.weapon} ◈`;$('#shield-offer').textContent=p.shieldLevel===3?'Nível máximo atingido':`+30 de capacidade · ${35*p.shieldLevel} ◈`;
@@ -21,6 +48,9 @@
     document.querySelector('[data-upgrade="repair"]').disabled=p.hp===100||game.credits<30;
   }
   function ui(){const p=game.player;$('#hull').value=p.hp;$('#hull-text').textContent=`${Math.ceil(p.hp)}%`;$('#shield').max=p.maxShield;$('#shield').value=p.shield;$('#shield-text').textContent=Math.ceil(p.shield);$('#score').textContent=padded(game.score);$('#best').textContent=padded(best);$('#credits').textContent=`◈ ${game.credits}`;$('#weapon-level').textContent=`Nível ${p.weapon}`;$('#sector-number').innerHTML=`${String(game.sector).padStart(2,'0')}<span>/ 05</span>`;$('#sector-name').textContent=sectorNames[game.sector-1];
+    $('#knowledge-score').textContent=`${game.questionsCorrect} acertos em ${game.questionsAnswered} respostas`;
+    $('#pause').disabled=!['playing','paused'].includes(game.state);
+    $('#end-quiz').textContent=`Computador de bordo: ${game.questionsCorrect} acertos em ${game.questionsAnswered} perguntas respondidas.`;
     $('#remaining').textContent=game.sector===5?'CHEFE':game.remaining>0?`${Math.ceil(game.remaining)}s`:`${game.enemies.length} alvos`;
     $('#objective').textContent=game.sector===5?'Destrua o Guardião para abrir a rota de fuga.':game.remaining>0?'Sobreviva e recolha fragmentos.':'Elimine os drones restantes para liberar o salto.';
     $('#remaining-label').textContent=game.sector===5?'ROTA BLOQUEADA':'PRÓXIMA JANELA DE SALTO';
@@ -28,8 +58,10 @@
     for(const [id,cooldown] of [['boost',game.boostCooldown],['pulse',game.pulseCooldown]]){$('#'+id).disabled=game.state!=='playing'||cooldown>0;$('#'+id).classList.toggle('cooling',cooldown>0);}
     [...$('#route').children].forEach((node,i)=>{node.classList.toggle('current',i===game.sector-1);node.classList.toggle('done',i<game.sector-1);});
     $('#arena-status').textContent=game.state==='playing'?`SETOR ${String(game.sector).padStart(2,'0')} / EM COMBATE`:game.state==='paused'?'TRANSMISSÃO PAUSADA':game.state==='upgrade'?'MANUTENÇÃO EM ÓRBITA':game.state==='won'?'ROTA DE FUGA ABERTA':game.state==='lost'?'SINAL PERDIDO':'AGUARDANDO PILOTO';
+    if(game.state==='quiz'){$('#arena-status').textContent='CALIBRAÇÃO / ARQUITETURA DE COMPUTADORES';$('#objective').textContent='Responda às perguntas para liberar a navegação. O combate está suspenso.';}
   }
   function events(){for(const event of game.events.splice(0)){
+    if(event.type==='quiz')showQuestion();
     if(event.type==='shot')tone(470,.035,'triangle',.012);
     if(event.type==='pickup')tone(950,.045,'sine',.018);
     if(event.type==='kill')tone(100,.12,'sawtooth',.025);
@@ -82,5 +114,6 @@
   $('#help').addEventListener('click',()=>{if(game.state==='playing')pause();$('#help-dialog').showModal();});for(const id of ['close-help','help-done'])$('#'+id).addEventListener('click',()=>$('#help-dialog').close());
   document.querySelectorAll('[data-upgrade]').forEach(button=>button.addEventListener('click',()=>{if(game.buy(button.dataset.upgrade)){$('#upgrade-feedback').textContent='Melhoria instalada. A Andorinha está pronta para o próximo salto.';log('Melhoria de equipamento instalada.');tone(700,.12);offers();ui();}}));
   $('#next-sector').addEventListener('click',()=>{game.next();keys.clear();shoot=false;overlays(null);ui();});
+  $('#quiz-next').addEventListener('click',()=>{if(game.continueQuiz()){overlays(game.state==='quiz'?'quiz-screen':null);keys.clear();shoot=false;ui();if(game.state==='playing')canvas.focus();}});
   canvas.setAttribute('tabindex','0');ui();requestAnimationFrame(frame);
 })();

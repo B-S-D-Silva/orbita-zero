@@ -3,6 +3,24 @@ const SpaceGame = (() => {
   const W=1200,H=760, clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
   const distance=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
   const sectorNames=['Cinturão exterior','Ecos da estação','Zona de interferência','Fronteira vermelha','O Guardião'];
+  const questions = [
+    {topic:'CPU',prompt:'Qual componente busca, interpreta e executa as instruções dos programas?',options:['CPU','RAM','Flash','DMA'],answer:0,explanation:'A CPU executa as instruções dos programas. Memórias armazenam dados, enquanto DMA é um mecanismo de transferência.'},
+    {topic:'ULA',prompt:'Que parte do processador realiza cálculos e operações lógicas?',options:['Cache','UC','ULA','ROM'],answer:2,explanation:'A ULA realiza operações aritméticas e lógicas, como somar e comparar valores.'},
+    {topic:'UC',prompt:'Qual circuito decodifica instruções e emite os sinais que coordenam a execução?',options:['DMA','UC','ULA','RAM'],answer:1,explanation:'A Unidade de Controle coordena a execução das instruções por meio de sinais de controle.'},
+    {topic:'RAM',prompt:'Qual memória principal de trabalho normalmente perde seu conteúdo quando a energia acaba?',options:['ROM','Flash','EEPROM','RAM'],answer:3,explanation:'A RAM é volátil: precisa de alimentação para manter os dados usados pelos programas em execução.'},
+    {topic:'ROM',prompt:'Qual memória, em sua forma tradicional, recebe o conteúdo na fabricação para posterior leitura?',options:['ROM','RAM','Cache','Registradores'],answer:0,explanation:'A ROM tradicional é gravada na fabricação. Existem outras tecnologias de memória não volátil que permitem regravação.'},
+    {topic:'CACHE',prompt:'Que memória rápida reduz o tempo de acesso a dados e instruções usados frequentemente?',options:['Memória de massa','EEPROM','Cache','ROM'],answer:2,explanation:'A cache mantém cópias de dados e instruções para reduzir acessos à memória principal, mais lenta.'},
+    {topic:'EEPROM',prompt:'Qual memória não volátil permite apagar e regravar eletricamente bytes individuais?',options:['RAM','EEPROM','Cache','Registradores'],answer:1,explanation:'A EEPROM pode ser regravada eletricamente em pequenas unidades, tipicamente bytes, sem perder dados ao desligar.'},
+    {topic:'FLASH',prompt:'Qual memória não volátil, comum em pendrives, apaga dados em blocos?',options:['RAM','ROM tradicional','Registradores','Flash'],answer:3,explanation:'A Flash permite apagar blocos de memória e conserva o conteúdo sem energia. É usada em pendrives, cartões e SSDs.'},
+    {topic:'MEMORIADEMASSA',prompt:'Em qual categoria entram SSDs e discos rígidos que guardam arquivos de forma persistente?',options:['Memória de massa','Registradores','Cache','ULA'],answer:0,explanation:'A memória de massa oferece armazenamento persistente de grande capacidade para arquivos e programas.'},
+    {topic:'REGISTRADORES',prompt:'Onde o processador mantém operandos e resultados imediatos em pequenos espaços internos?',options:['Memória de massa','ROM','Registradores','Flash'],answer:2,explanation:'Registradores são pequenas áreas de armazenamento dentro do processador, usadas diretamente na execução de instruções.'},
+    {topic:'DMA',prompt:'Que mecanismo transfere dados entre periféricos e memória sem intervenção contínua da CPU?',options:['ULA','DMA','Cache','UC'],answer:1,explanation:'O DMA permite transferências diretas entre dispositivos e memória. A CPU ainda participa da configuração e do controle geral.'},
+    {topic:'DATABUS',prompt:'Qual barramento transporta os valores transferidos entre processador, memória e dispositivos?',options:['Address bus','Barramento de controle','Clock','Data bus'],answer:3,explanation:'O data bus transporta os dados. O address bus indica o endereço, enquanto linhas de controle coordenam a operação.'},
+    {topic:'ADDRESSBUS',prompt:'Qual barramento indica a posição de memória ou o dispositivo que será acessado?',options:['Address bus','Data bus','ULA','Cache'],answer:0,explanation:'O address bus transporta os endereços usados para selecionar posições de memória ou dispositivos endereçáveis.'},
+    {topic:'MICROCONTROLADOR',prompt:'Qual chip integra processador, memória e periféricos para controlar um sistema embarcado?',options:['Módulo de RAM','Microcontrolador','SSD','Barramento'],answer:1,explanation:'Microcontroladores reúnem CPU, memórias e periféricos em um chip, sendo comuns no controle de equipamentos.'},
+    {topic:'DUALCORE',prompt:'Quantos núcleos físicos de processamento possui um processador dual core?',options:['Um','Quatro','Dois','Oito'],answer:2,explanation:'Dual core indica dois núcleos físicos. Núcleos não devem ser confundidos com threads de execução.'},
+    {topic:'QUADCORE',prompt:'Quantos núcleos físicos de processamento possui um processador quad core?',options:['Dois','Oito','Dezesseis','Quatro'],answer:3,explanation:'Quad core indica quatro núcleos físicos de processamento, independentemente da quantidade de threads suportadas.'}
+  ];
   class Game {
     constructor(random=Math.random){this.random=random;this.reset();}
     reset(){
@@ -10,11 +28,35 @@ const SpaceGame = (() => {
       this.enemies=[];this.bullets=[];this.hostile=[];this.rocks=[];this.pickups=[];this.effects=[];
       this.score=0;this.credits=0;this.kills=0;this.time=0;this.sector=1;this.remaining=25;this.spawnTimer=1;
       this.cooldown=0;this.boostCooldown=0;this.pulseCooldown=0;this.boostTime=0;this.damageAgo=10;this.state='ready';this.events=[];
+      this.quiz=null;this.questionsAnswered=0;this.questionsCorrect=0;
     }
     emit(type,data={}){this.events.push({type,...data});}
-    start(){this.reset();this.state='playing';this.makeRocks();this.emit('sector');}
+    start(){this.reset();this.makeRocks();this.beginQuiz();}
+    beginQuiz(){
+      const start=(this.sector-1)*3;
+      const round=questions.slice(start,this.sector===5?16:start+3).map(question=>{
+        const choices=question.options.map((text,index)=>({text,correct:index===question.answer}));
+        for(let i=choices.length-1;i>0;i--){const j=Math.floor(this.random()*(i+1));[choices[i],choices[j]]=[choices[j],choices[i]];}
+        return {...question,choices};
+      });
+      this.quiz={questions:round,index:0,selected:null,correct:null};this.state='quiz';this.emit('quiz');
+    }
+    answerQuestion(index){
+      if(this.state!=='quiz'||!this.quiz||this.quiz.selected!==null)return null;
+      const question=this.quiz.questions[this.quiz.index];
+      if(!Number.isInteger(index)||index<0||index>=question.choices.length)return null;
+      const correct=question.choices[index].correct;this.quiz.selected=index;this.quiz.correct=correct;this.questionsAnswered++;
+      if(correct){this.questionsCorrect++;this.score+=100;this.credits+=15;}
+      return correct;
+    }
+    continueQuiz(){
+      if(this.state!=='quiz'||this.quiz.selected===null)return false;
+      if(this.quiz.index+1<this.quiz.questions.length){this.quiz.index++;this.quiz.selected=null;this.quiz.correct=null;this.emit('quiz');}
+      else{this.quiz=null;this.state='playing';this.player.invincible=2;this.emit('sector');}
+      return true;
+    }
     makeRocks(){for(let i=0;i<5;i++)this.rocks.push({x:60+this.random()*(W-120),y:40+this.random()*230,r:20+this.random()*22,hp:65,vx:(this.random()-.5)*24,vy:10+this.random()*12,angle:this.random()*6,spin:(this.random()-.5)*.3});}
-    next(){if(this.state!=='upgrade')return;this.sector++;this.remaining=25+this.sector*3;this.spawnTimer=1;this.hostile=[];this.bullets=[];this.pickups=[];this.rocks=[];this.makeRocks();this.player.invincible=2;this.state='playing';if(this.sector===5)this.spawn('boss');this.emit('sector');}
+    next(){if(this.state!=='upgrade')return;this.sector++;this.remaining=25+this.sector*3;this.spawnTimer=1;this.hostile=[];this.bullets=[];this.pickups=[];this.rocks=[];this.makeRocks();if(this.sector===5)this.spawn('boss');this.beginQuiz();}
     spawn(kind){
       const edge=Math.floor(this.random()*3),x=edge===0?-35:edge===1?W+35:80+this.random()*(W-160),y=edge===2?-35:this.random()*H*.6;
       const boss=kind==='boss', heavy=kind==='heavy';
@@ -64,6 +106,6 @@ const SpaceGame = (() => {
       else if(this.remaining<=0&&this.enemies.length===0&&this.sector<5){this.credits+=20;this.score+=250;this.state='upgrade';this.emit('sector-clear');}
     }
   }
-  return {Game,W,H,sectorNames};
+  return {Game,W,H,sectorNames,questions};
 })();
 if(typeof module!=='undefined')module.exports=SpaceGame;
