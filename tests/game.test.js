@@ -64,3 +64,42 @@ console.log('OK: movimento, limites, pausa, escudo, dano, reinício, propulsão,
   assert.equal(new Set(seen).size,16);assert.equal(g.questionsAnswered,16);assert.equal(g.questionsCorrect,16);assert.equal(g.score,1600);assert.equal(g.credits,240);assert.equal(g.state,'playing');assert.ok(g.enemies.some(e=>e.kind==='boss'));
 }
 console.log('OK: 16 temas únicos, questões obrigatórias por setor, pausa segura, explicações, erros sem penalidade, bônus único, reinício e calibração final.');
+
+// O dash funciona parado, mantém uma direção estável e regenera cargas em sequência.
+{
+  const g=fresh();g.spawnTimer=100;g.remaining=100;
+  const x=g.player.x;assert.equal(g.boost({x:1,y:0}),true);assert.equal(g.dashCharges,1);
+  for(let i=0;i<4;i++)g.step(.05,{dx:-1});
+  assert.ok(g.player.x>x+180,'Dash não depende de manter uma tecla e não muda de direção no meio');
+  assert.equal(g.boost({x:-1,y:0}),true);assert.equal(g.dashCharges,0);assert.equal(g.boost(),false);
+  for(let i=0;i<81;i++)g.step(.05);
+  assert.equal(g.dashCharges,1);
+  g.state='paused';const timer=g.boostCooldown;g.step(.05);assert.equal(g.boostCooldown,timer);
+  g.state='playing';for(let i=0;i<81;i++)g.step(.05);assert.equal(g.dashCharges,2);
+  g.start();assert.equal(g.dashCharges,2);assert.equal(g.boost(),false,'Dash bloqueado no quiz');
+}
+{
+  const g=new Game(()=>.4);g.startQuizOnly();
+  assert.equal(g.quiz.questions.length,16);assert.equal(g.quizOnly,true);
+  for(let i=0;i<16;i++){
+    const q=g.quiz.questions[g.quiz.index];g.answerQuestion(q.choices.findIndex(c=>c.correct));
+    if(i===2)assert.equal(g.overdrive,8);
+    g.continueQuiz();
+  }
+  assert.equal(g.state,'won');assert.equal(g.questionsCorrect,16);assert.equal(g.bestQuizStreak,16);assert.equal(g.score,1600);assert.equal(g.time,0);assert.equal(g.enemies.length,0);
+  g.start();assert.equal(g.quizOnly,false);assert.equal(g.quizStreak,0);assert.equal(g.overdrive,0);
+}
+{
+  const g=fresh();g.spawnTimer=100;g.remaining=100;
+  for(let i=0;i<4;i++){g.spawn('drone');Object.assign(g.enemies.at(-1),{hp:0,x:100,y:100});}
+  g.step(.01);assert.equal(g.combo,4);assert.equal(g.multiplier,2);assert.equal(g.score,500);
+  g.player.invincible=0;g.damage(1);assert.equal(g.combo,0);assert.equal(g.multiplier,1);
+  g.quizStreak=2;g.beginQuiz();g.answerQuestion(g.quiz.questions[0].choices.findIndex(c=>!c.correct));assert.equal(g.quizStreak,0);
+}
+{
+  const fs=require('node:fs'),path=require('node:path');
+  const html=fs.readFileSync(path.join(__dirname,'../index.html'),'utf8'),script=fs.readFileSync(path.join(__dirname,'../script.js'),'utf8');
+  const ids=[...html.matchAll(/\bid="([^"]+)"/g)].map(m=>m[1]);assert.equal(ids.length,new Set(ids).size);
+  for(const match of script.matchAll(/\$\('#([a-z-]+)'\)/g))assert.ok(ids.includes(match[1]),`Elemento da interface ausente: ${match[1]}`);
+}
+console.log('OK: dash direcional e cargas, modo só quiz, overdrive, combo de combate e elementos da interface.');
