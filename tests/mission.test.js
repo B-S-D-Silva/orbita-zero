@@ -48,6 +48,8 @@ const context={Crossword,document,localStorage:{setItem:(k,v)=>store.set(k,v),ge
 vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../script.js'),'utf8'),context);
 const $=selector=>document.querySelector(selector);
 assert.equal($('#score').textContent,'0 de 16 palavras');
+assert.equal($('#score').attrs['aria-live'],'polite');
+assert.equal($('#hint-count').attrs['aria-atomic'],'true');
 const previousClue = $('#active-number').textContent;
 $('#next-button').click();
 assert.notEqual($('#active-number').textContent,previousClue);
