@@ -48,6 +48,10 @@ const context={Crossword,document,localStorage:{setItem:(k,v)=>store.set(k,v),ge
 vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../script.js'),'utf8'),context);
 const $=selector=>document.querySelector(selector);
 assert.equal($('#score').textContent,'0 de 16 palavras');
+const previousClue = $('#active-number').textContent;
+$('#next-button').click();
+assert.notEqual($('#active-number').textContent,previousClue);
+$('#reset-button').click();
 assert.equal($('#board').querySelectorAll('input').length, new Set(Crossword.generate().words.flatMap(w=>Crossword.coordinates(w).map(p=>Crossword.key(...p)))).size);
 $('#hint-button').click();assert.equal($('#hint-count').textContent,'2 / 3');assert.equal($('#points').textContent,'−0050');
 $('#hint-button').click();$('#hint-button').click();assert.equal($('#hint-button').disabled,true);
@@ -60,6 +64,7 @@ for(const input of $('#board').querySelectorAll('input')){
 }
 $('#check-button').click();assert.equal($('#score').textContent,'16 de 16 palavras');assert.equal($('#points').textContent,'1600');assert.equal($('#sector-count').textContent,'4 / 4');assert.equal($('#complete-dialog').open,true);
 $('#check-button').click();assert.equal($('#points').textContent,'1600');
+assert.equal($('#next-button').disabled,true);
 const input=$('#board').querySelectorAll('input')[0];input.value='!';input.fire('input');assert.notEqual($('#points').textContent,'1600');
 $('#reset-button').click();assert.equal($('#score').textContent,'0 de 16 palavras');assert.equal($('#points').textContent,'0000');assert.equal($('#sector-count').textContent,'0 / 4');
 assert.ok(store.size>0);

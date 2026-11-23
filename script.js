@@ -36,6 +36,14 @@
     try {
       const state = JSON.parse(localStorage.getItem(storageKey));
       if (!state || state.version !== 1) return;
+      // Um salvamento inválido não deve restaurar parcialmente os recursos da missão.
+      if (!state.values || typeof state.values !== 'object' || Array.isArray(state.values)
+        || !Array.isArray(state.solved) || !Array.isArray(state.revealed)
+        || !Number.isInteger(state.hints) || state.hints < 0 || state.hints > 3
+        || !Number.isFinite(state.elapsed) || state.elapsed < 0) {
+        log('Salvamento incompatível ignorado. Uma nova missão foi iniciada.');
+        return;
+      }
       for (const [k, value] of Object.entries(state.values || {})) {
         if (inputs.has(k) && typeof value === 'string') inputs.get(k).value = Crossword.normalize(value).slice(0,1);
       }
@@ -43,7 +51,7 @@
       elapsed = Number.isFinite(state.elapsed) ? Math.max(0,Math.floor(state.elapsed)) : 0;
       checked = state.checked === true;
       const results = Crossword.evaluate(words, read);
-      solved = new Set((state.solved || []).filter(id => results[id]?.correct));
+      solved = new Set(state.solved.filter(id => Number.isInteger(id) && results[id]?.correct));
       for (const k of state.revealed || []) if (inputs.has(k)) revealed.add(k);
       completeShown = solved.size === words.length;
       log('Sessão anterior recuperada. Continue de onde parou.');
@@ -86,6 +94,7 @@
     $('#points').textContent = `${points() < 0 ? '−' : ''}${String(Math.abs(points())).padStart(4,'0')}`;
     $('#hint-count').textContent = `${hints} / 3`;
     $('#hint-button').disabled = hints === 0 || solved.size === words.length;
+    $('#next-button').disabled = solved.size === words.length;
     let online = 0;
     sectors.forEach((sector,index) => {
       const group = words.filter(word => sectorOf(word) === index);
@@ -203,6 +212,15 @@
   }
   $('#check-button').addEventListener('click',check);
   $('#hint-button').addEventListener('click',hint);
+  $('#next-button').addEventListener('click',() => {
+    const index = words.findIndex(word => word.id === active.id);
+    const ordered = [...words.slice(index + 1), ...words.slice(0, index + 1)];
+    const next = ordered.find(word => !solved.has(word.id));
+    if (!next) return;
+    // Mostrar a pista mesmo quando o filtro anterior era de outro subsistema.
+    $('#sector-filter').value='all'; filter(); selectWord(next);
+    say(`Diagnóstico ${next.number} selecionado. Resolva esta conexão pendente.`);
+  });
   $('#sector-filter').addEventListener('change',filter);
   $('#reset-button').addEventListener('click',()=> {
     inputs.forEach(input=>{input.value='';});solved.clear();revealed.clear();hints=3;elapsed=0;checked=false;completeShown=false;events=[];
