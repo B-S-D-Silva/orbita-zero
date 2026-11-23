@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Palavras cruzadas sobre arquitetura de computadores, com espírito de xadrez.">
+  <title>Xeque-mate na Arquitetura</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="puzzle.js" defer></script>
+  <script src="script.js" defer></script>
+</head>
+<body>
+  <main class="page">
+    <header class="hero">
+      <div class="brand" aria-hidden="true">♜</div>
+      <div><p class="eyebrow">O próximo lance é seu</p><h1>Xeque-mate na Arquitetura</h1><p>Uma estratégia de cada vez. Uma palavra a cada lance.</p></div>
+      <button id="reset-button" class="secondary" type="button">↺ Reiniciar</button>
+    </header>
+    <section class="progress-panel" aria-label="Progresso da partida">
+      <span id="rank">♙ Peão curioso</span>
+      <div class="progress-track"><progress id="progress" value="0" max="16" aria-label="Palavras corretas"></progress></div>
+      <strong id="score" aria-live="polite">0 de 16 palavras</strong>
+    </section>
+    <div class="layout">
+      <section class="game-card" aria-labelledby="board-title">
+        <div class="card-top"><div><p class="eyebrow">Tabuleiro de conhecimento</p><h2 id="board-title">Sua jogada</h2></div><span class="badge">SEM LIMITE DE TEMPO</span></div>
+        <p id="instructions">Escolha uma pista e escreva nas casas. Use as setas para navegar; Enter alterna a direção.</p>
+        <div class="board-viewport"><div id="board" class="board" role="group" aria-label="Tabuleiro de palavras cruzadas"></div></div>
+        <p id="active-clue" class="active-clue" aria-live="polite">Selecione uma pista para começar.</p>
+        <div class="actions"><button id="check-button" class="primary" type="button">Conferir</button><p id="feedback" role="status">O rei espera seu primeiro lance.</p></div>
+        <p class="legend"><span>✓ Palavra certa</span><span>× Palavra errada ou incompleta</span></p>
+      </section>
+      <aside class="clues-card" aria-label="Pistas da cruzadinha">
+        <p class="eyebrow">Seu plano de ataque</p>
+        <section><h2>→ Horizontais</h2><ol id="across-clues"></ol></section>
+        <section><h2>↓ Verticais</h2><ol id="down-clues"></ol></section>
+      </aside>
+    </div>
+    <footer>Letras maiúsculas, sem acentos e sem espaços. Cada palavra cruza com outra.</footer>
+  </main>
+</body>
+</html>
