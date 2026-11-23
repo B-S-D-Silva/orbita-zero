@@ -19,6 +19,7 @@
     const quiz=game.quiz,question=quiz.questions[quiz.index];
     overlays('quiz-screen');keys.clear();shoot=false;target=null;activePointer=null;
     $('#quiz-round').textContent=game.quizOnly?`SOLO · ${quiz.index+1}/16`:`FASE ${game.sector} · ${quiz.index+1}/${quiz.questions.length}`;
+    $('#quiz-screen h2').textContent=game.quizOnly?'16 DESAFIOS. UM NOVO RECORDE.':'ACERTOU? SUA NAVE AGRADECE.';
     $('.quiz-instruction').textContent=game.quizOnly?'16 perguntas, sem combate. +100 pontos por acerto. Aprenda com cada explicação.':'+100 pontos e +15 fragmentos por acerto. Três seguidos liberam OVERDRIVE.';
     $('#quiz-question').textContent=question.prompt;
     $('#quiz-dots').replaceChildren(...quiz.questions.map((_,i)=>{const dot=document.createElement('i');dot.className=i<quiz.index?'done':i===quiz.index?'active':'';return dot;}));
@@ -30,7 +31,7 @@
       button.append(number,choice.text);button.addEventListener('click',()=>answerQuestion(index));return button;
     }));
     $('#quiz-total').textContent=quizSummary();
-    $('.quiz-content').focus({preventScroll:true});ui();
+    $('.quiz-content').focus({preventScroll:true});$('#quiz-screen').scrollIntoView({block:'start',behavior:'auto'});ui();
   }
   function answerQuestion(index){
     const correct=game.answerQuestion(index);if(correct===null)return;
@@ -83,6 +84,11 @@
     [...$('#route').children].forEach((node,i)=>{node.classList.toggle('current',i===game.sector-1);node.classList.toggle('done',i<game.sector-1);});
     $('#arena-status').textContent=game.state==='playing'?`SETOR ${String(game.sector).padStart(2,'0')} / EM COMBATE`:game.state==='paused'?'TRANSMISSÃO PAUSADA':game.state==='upgrade'?'MANUTENÇÃO EM ÓRBITA':game.state==='won'?'ROTA DE FUGA ABERTA':game.state==='lost'?'SINAL PERDIDO':'AGUARDANDO PILOTO';
     if(game.state==='quiz'){$('#arena-status').textContent='★ QUIZ CHALLENGE / COMBATE PAUSADO';$('#objective').textContent=game.quizOnly?'MODO SOLO: encare as 16 perguntas, sem combate.':'Responda ao quiz. Três acertos seguidos liberam OVERDRIVE!';}
+    $('#route').hidden=game.quizOnly;
+    if(game.quizOnly){
+      $('#sector-number').replaceChildren(document.createTextNode(String(game.questionsAnswered).padStart(2,'0')),Object.assign(document.createElement('span'),{textContent:'/16'}));
+      $('#sector-name').textContent='Quiz Challenge';$('#remaining').textContent='SEM LIMITE';$('#remaining-label').textContent='RESPONDA NO SEU RITMO';
+    }
   }
   function events(){for(const event of game.events.splice(0)){
     if(event.type==='quiz')showQuestion();
