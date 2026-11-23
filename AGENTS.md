@@ -18,6 +18,6 @@ Pausar ao perder foco. Som começa desativado, inicializado apenas por gesto do 
 Executar node --check game.js, node --check script.js e node tests/game.test.js antes de publicar. Inspecionar a interface no navegador quando disponível.
 
 ## Git e publicação
-O destino correto é B-S-D-Silva/meu-primeiro-rep. O produto é ÓRBITA ZERO. O origin local deve apontar para esse repositório; nunca enviar novas versões para arqcomp-cruzadinha. Preservar os históricos existentes e não alterar a visibilidade sem autorização.
+O destino correto é o repositório originalmente chamado B-S-D-Silva/meu-primeiro-rep, renomeado externamente para B-S-D-Silva/orbita-zero. O origin deve usar https://github.com/B-S-D-Silva/orbita-zero.git. Nunca enviar novas versões para arqcomp-cruzadinha. Preservar os históricos existentes e não alterar nome ou visibilidade sem autorização.
 Usar commits reais com feat, fix, style ou docs e datas reais. Nunca forjar contribuições em dois dias. Não incluir dados pessoais ou credenciais. Usar identidade técnica do projeto.
 GitHub Actions deve testar e publicar apenas index.html, style.css, game.js e script.js.
